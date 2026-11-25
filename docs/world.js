@@ -716,6 +716,8 @@ export class World {
     pending = false;
 
     constructor(fogFar = 292) {
+        // An identity scene must not force WorldMatrix updates on static tiles every frame.
+        this.scene.matrixAutoUpdate = false;
         this.scene.background = new THREE.Color(sky);
         this.scene.fog = new THREE.Fog(sky, 90, fogFar);
         this.streamRadius = fogFar + 66;
