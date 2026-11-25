@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "title": "A Little Drive",
+    "cover": "./cover.jpg",
+    "actions": [
+        {"id":"left","label":"Turn left","default":"dpad_left"},
+        {"id":"right","label":"Turn right","default":"dpad_right"},
+        {"id":"accelerate","label":"Accelerate","default":"south"},
+        {"id":"brake","label":"Brake / reverse","default":"west"},
+        {"id":"horn","label":"Horn","default":"east"},
+        {"id":"radio","label":"Change radio station","default":"north"},
+        {"id":"pause","label":"Pause / resume","default":"start"},
+        {"id":"menu","label":"Game menu","default":"select"}
+    ]
+}

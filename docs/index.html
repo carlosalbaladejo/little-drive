@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+    <meta name="theme-color" content="#bde4f0">
+    <title>A Little Drive</title>
+    <link rel="tv-game-manifest" href="./game.json">
+    <link rel="stylesheet" href="./style.css?v=little-drive-1">
+</head>
+<body>
+    <main aria-label="A Little Drive">
+        <canvas id="view" aria-hidden="true"></canvas>
+        <div class="location-hud">
+            <div class="location"><span class="game-title">A Little Drive</span><strong id="district"></strong><time id="drive-time" datetime="PT0S" aria-label="Driving time">00:00</time></div>
+            <div class="audio-controls">
+                <button id="unlock-audio" hidden>Enable audio</button>
+                <button id="radio" aria-label="Change radio station" hidden></button>
+            </div>
+        </div>
+        <div class="vehicle-hud">
+            <div class="speed"><strong id="speed">0</strong><span>km/h</span></div>
+            <div id="health" hidden><label for="condition">♥ Health</label><strong id="health-value"></strong><progress id="condition" max="100" value="100"></progress></div>
+            <div class="compass" aria-label="Compass"><span class="compass-dial" aria-hidden="true"><span id="north-needle"></span></span><strong id="heading">N</strong></div>
+        </div>
+        <canvas id="minimap" width="192" height="192" aria-label="Minimap, north up"></canvas>
+        <div id="drive-controls" aria-label="Touch controls">
+            <div>
+                <button type="button" data-control="left" aria-label="Steer left">←</button>
+                <button type="button" data-control="right" aria-label="Steer right">→</button>
+            </div>
+            <div>
+                <button type="button" data-control="horn" aria-label="Horn">Horn</button>
+                <button type="button" data-control="menu" aria-label="Game menu">☰</button>
+            </div>
+            <div>
+                <button type="button" data-control="brake">Brake</button>
+                <button type="button" data-control="accelerate">Drive</button>
+            </div>
+        </div>
+        <p id="notice" role="status" hidden><span id="notice-text"></span><span class="reward-stars" aria-hidden="true"><span>✦</span><span>★</span><span>✦</span></span></p>
+        <section class="overlay" id="pause-screen" aria-label="Paused" hidden>
+            <div class="panel">
+                <h1>Paused</h1>
+                <button id="resume">Resume</button>
+                <p class="hint">Press Start to resume</p>
+            </div>
+        </section>
+        <section class="overlay" id="menu" aria-label="Game menu" hidden>
+            <div class="panel">
+                <h1>Settings</h1>
+                <div class="choices">
+                    <button data-action="continue">Resume</button>
+                    <button data-action="speed"></button>
+                    <button data-action="damage"></button>
+                    <button data-action="sound"></button>
+                    <button data-action="minimap"></button>
+                    <button data-action="controller" hidden>Use physical controller</button>
+                    <button data-action="restart">Restart</button>
+                    <button data-action="catalog" hidden>Return to catalog</button>
+                </div>
+                <p class="hint" id="menu-hint">← → Choose · × Confirm · Select Back</p>
+            </div>
+        </section>
+        <section class="overlay" id="wreck-screen" aria-label="Car disabled" hidden>
+            <div class="panel">
+                <h1>Car disabled</h1>
+                <button id="restart-wreck">Restart</button>
+                <p class="hint">Press × to restart</p>
+            </div>
+        </section>
+        <section class="overlay" id="error" aria-label="Graphics error" hidden>
+            <div class="panel">
+                <h1>Could not start the 3D game</h1>
+                <p>WebGL graphics are not available on this device.</p>
+                <button id="error-exit" hidden>Return to catalog</button>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="./drive.js?v=little-drive-1"></script>
+</body>
+</html>
