@@ -1,5 +1,5 @@
 import {TILE, verticalStreet, roadOffset} from './city.js?v=english-1';
-import {district, riverCenter, shore, oppositeShore} from './world.js?v=english-1';
+import {district, riverCenter, shore, oppositeShore} from './world.js?v=performance-1';
 
 const shades = {
     villas: '#bccf9a', city: '#d2c1a4', offices: '#b9c6b7', river: '#bbd4a6',

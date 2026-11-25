@@ -715,9 +715,10 @@ export class World {
     streamCell = '';
     pending = false;
 
-    constructor() {
+    constructor(fogFar = 292) {
         this.scene.background = new THREE.Color(sky);
-        this.scene.fog = new THREE.Fog(sky, 90, 292);
+        this.scene.fog = new THREE.Fog(sky, 90, fogFar);
+        this.streamRadius = fogFar + 66;
         this.scene.add(new THREE.HemisphereLight(0xfff8ea, 0x819d99, 2.1));
         const sun = new THREE.DirectionalLight(0xffe6be, 2.3);
         sun.position.set(-45, 85, 55);
@@ -727,6 +728,12 @@ export class World {
     add(i, j, time) {
         const tile = new TileBuilder(i, j).finish();
         tile.group.position.set(tile.x - this.originX, 0, tile.z - this.originZ);
+        // Static scenery only needs new transforms when the world origin moves.
+        tile.group.traverse(object => {
+            if (object === tile.binLid) return;
+            object.updateMatrix();
+            object.matrixAutoUpdate = false;
+        });
         this.tiles.set(`${i},${j}`, tile);
         this.scene.add(tile.group);
         this.light(tile, time);
@@ -748,8 +755,8 @@ export class World {
             }
         }
 
-        // Start loading the next edge up to 70 m before the tile boundary.
-        // Use a small grid for look-ahead invalidation; origin rebases do no bulk work.
+        // Stream past the fog so tiles are ready before they enter the view.
+        // Use a small grid for look-ahead invalidation.
         const streamCell = `${Math.floor(x / 12)},${Math.floor(z / 12)}`;
         let nearest, retire;
         if (cold || streamCell !== this.streamCell || this.pending) {
@@ -760,14 +767,19 @@ export class World {
                     const dx = Math.max(0, a * TILE - x, x - (a + 1) * TILE);
                     const dz = Math.max(0, b * TILE - z, z - (b + 1) * TILE);
                     const distance = dx * dx + dz * dz;
-                    if (distance <= 358 ** 2 && (!nearest || distance < nearest.distance)) nearest = {a, b, distance};
+                    if (distance <= this.streamRadius ** 2 && (!nearest || distance < nearest.distance)) {
+                        nearest = {a, b, distance};
+                    }
                 }
             }
         }
         for (const [key, tile] of this.tiles) {
             const distance = Math.max(Math.abs(i - tile.i), Math.abs(j - tile.j));
             if (distance > 3) retire = {tile, key};
-            if (rebase) tile.group.position.set(tile.x - this.originX, 0, tile.z - this.originZ);
+            if (rebase) {
+                tile.group.position.set(tile.x - this.originX, 0, tile.z - this.originZ);
+                tile.group.updateMatrix();
+            }
             tile.group.visible = distance <= 3;
             if (tile.group.visible) this.light(tile, time);
         }

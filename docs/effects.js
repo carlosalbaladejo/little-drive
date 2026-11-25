@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import {surface, onRoad} from './world.js?v=english-1';
+import {surface, onRoad} from './world.js?v=performance-1';
 
 // Wheelbase samples, in the car's local frame (front is -Z).
 export function groundPose(x, z, heading) {
@@ -29,7 +29,10 @@ class ParticlePool {
         this.geometry = geometry;
         this.material = new THREE.ShaderMaterial({
             transparent: true, depthWrite: false,
-            uniforms: {pixelScale: {value: 1}, fogColor: {value: scene.fog.color}},
+            uniforms: {
+                pixelScale: {value: 1}, fogColor: {value: scene.fog.color},
+                fogNear: {value: scene.fog.near}, fogFar: {value: scene.fog.far},
+            },
             vertexShader: `attribute float size; attribute float alpha; attribute vec3 color;
                 uniform float pixelScale;
                 varying float opacity; varying vec3 tint; varying float distanceToEye;
@@ -40,12 +43,14 @@ class ParticlePool {
                     opacity = alpha; tint = color; distanceToEye = -mv.z;
                 }`,
             fragmentShader: `uniform vec3 fogColor;
+                uniform float fogNear;
+                uniform float fogFar;
                 varying float opacity; varying vec3 tint; varying float distanceToEye;
                 void main() {
                     float radius = length(gl_PointCoord - 0.5) * 2.0;
                     float edge = 1.0 - smoothstep(${dust ? '0.12' : '0.35'}, 1.0, radius);
                     if (edge * opacity < 0.01) discard;
-                    gl_FragColor = vec4(mix(tint, fogColor, smoothstep(90.0,292.0,distanceToEye)), edge * opacity);
+                    gl_FragColor = vec4(mix(tint, fogColor, smoothstep(fogNear, fogFar, distanceToEye)), edge * opacity);
                 }`,
         });
         this.points = new THREE.Points(geometry, this.material);
@@ -71,14 +76,24 @@ class ParticlePool {
 
     draw(originX, originZ, pixelScale) {
         const a = this.geometry.attributes;
-        for (const [i, p] of this.particles.entries()) {
-            const t = p.life > 0 ? p.life / p.duration : 0;
-            a.position.setXYZ(i, (p.x || 0) - originX, p.y || 0, (p.z || 0) - originZ);
-            a.size.setX(i, p.life > 0 ? p.size * (this.dust ? 2.4 - 1.4 * t : .5 + .5 * t) : 0);
-            a.alpha.setX(i, t * (this.dust ? .36 : 1));
-            a.color.setXYZ(i, this.dust ? .74 : 1, this.dust ? .63 : .55 + .4 * t, this.dust ? .45 : .15);
+        let count = 0;
+        for (const p of this.particles) {
+            if (p.life <= 0) continue;
+            const t = p.life / p.duration;
+            a.position.setXYZ(count, p.x - originX, p.y, p.z - originZ);
+            a.size.setX(count, p.size * (this.dust ? 2.4 - 1.4 * t : .5 + .5 * t));
+            a.alpha.setX(count, t * (this.dust ? .36 : 1));
+            a.color.setXYZ(count, this.dust ? .74 : 1, this.dust ? .63 : .55 + .4 * t, this.dust ? .45 : .15);
+            count++;
         }
-        for (const attribute of Object.values(a)) attribute.needsUpdate = true;
+        this.points.visible = count > 0;
+        if (!count) return;
+        this.geometry.setDrawRange(0, count);
+        for (const attribute of Object.values(a)) {
+            attribute.clearUpdateRanges();
+            attribute.addUpdateRange(0, count * attribute.itemSize);
+            attribute.needsUpdate = true;
+        }
         this.material.uniforms.pixelScale.value = pixelScale;
     }
 

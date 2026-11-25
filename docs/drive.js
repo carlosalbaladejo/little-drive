@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.min.js';
-import {World, START, elevation, labelAt, onRoad, surface} from './world.js?v=english-1';
-import {groundPose, DrivingEffects} from './effects.js?v=english-1';
+import {World, START, elevation, labelAt, onRoad, surface} from './world.js?v=performance-1';
+import {groundPose, DrivingEffects} from './effects.js?v=performance-1';
 import {Traffic, footprint, overlap, vehicleTypes} from './traffic.js?v=english-1';
 import {DriveAudio, radioNames} from './audio.js?v=english-1';
-import {drawMinimap, showHeading} from './navigation.js?v=english-1';
-import {browserControls} from './browser-controls.js?v=1';
+import {drawMinimap, showHeading} from './navigation.js?v=performance-1';
+import {browserControls} from './browser-controls.js?v=2';
 
 const canvas = document.querySelector('#view');
 const minimap = document.querySelector('#minimap');
@@ -28,6 +28,10 @@ const storageKey = 'paseo-costero.pose.v1';
 const settingsKey = 'paseo-costero.settings.v1';
 const speedOptions = [40, 60, 83, 105, 130];
 const audio = new DriveAudio();
+// Detect TV before creating the WebGL context; MSAA cannot be changed later.
+const tv = /\bLinkArcadeTV\b|\bAFT[A-Z0-9]*\b/i.test(navigator.userAgent);
+const pixelBudget = tv ? 960 * 540 : 1250000;
+const fogFar = tv ? 210 : 292;
 const healthHud = document.querySelector('#health');
 const healthMeter = healthHud.querySelector('progress');
 const healthValue = document.querySelector('#health-value');
@@ -219,14 +223,14 @@ audio.enabled = settings.sound;
 
 let renderer;
 try {
-    renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: false, powerPreference: 'low-power'});
+    renderer = new THREE.WebGLRenderer({canvas, antialias: !tv, alpha: false, powerPreference: 'low-power'});
 } catch {
     error.hidden = false;
 }
 
-const world = renderer && new World();
+const world = renderer && new World(fogFar);
 const effects = renderer && new DrivingEffects(world.scene);
-const camera = new THREE.PerspectiveCamera(62, 1, .22, 340);
+const camera = new THREE.PerspectiveCamera(62, 1, .22, fogFar + 48);
 const player = renderer && carModel(0xf47351);
 const traffic = new Traffic();
 const trafficMeshes = [];
@@ -254,6 +258,8 @@ let waitForAcceleratorRelease = false;
 const keysDown = new Set();
 let dirty = true;
 let mapFrame = -1;
+let mapX, mapZ, mapHeading;
+let compassHeading;
 
 function save() {
     try { localStorage.setItem(storageKey, JSON.stringify({...savedPose, health, driveTime})); } catch { /* Optional storage. */ }
@@ -293,9 +299,11 @@ function changeRadio() {
 
 function syncAudioControl() {
     const silent = audio.context?.state !== 'running';
-    unlockButton.hidden = !silent || mode !== 'drive';
+    const hideUnlock = !silent || mode !== 'drive';
+    if (unlockButton.hidden !== hideUnlock) unlockButton.hidden = hideUnlock;
     // Keep the direct-gesture fallback available in older imported catalogs.
-    radioButton.hidden = silent || mode !== 'drive';
+    const hideRadio = silent || mode !== 'drive';
+    if (radioButton.hidden !== hideRadio) radioButton.hidden = hideRadio;
 }
 
 function setMode(next) {
@@ -517,8 +525,8 @@ if (renderer) {
     world.scene.add(player.root);
     const resize = () => {
         const w = canvas.clientWidth, h = canvas.clientHeight;
-        renderer.setPixelRatio(Math.min(devicePixelRatio, 1.4, Math.sqrt(1250000 / Math.max(1, w * h))));
-        renderer.setSize(w, h, false);
+        const ratio = Math.min(devicePixelRatio, tv ? 1 : 1.4, Math.sqrt(pixelBudget / Math.max(1, w * h)));
+        renderer.setDrawingBufferSize(w, h, ratio);
         camera.aspect = w / Math.max(1, h);
         camera.updateProjectionMatrix();
         dirty = true;
@@ -681,7 +689,7 @@ function simulate(dt) {
         save();
         saveTime = 0;
     }
-    if (worldTime >= toastTime) notice.hidden = true;
+    if (!notice.hidden && worldTime >= toastTime) notice.hidden = true;
 }
 
 function draw(dt) {
@@ -715,10 +723,11 @@ function draw(dt) {
     effects.waterRipple(recovery, world.originX, world.originZ);
     player.paint.emissiveIntensity = effects.bump * 2.5;
     for (const wheel of player.wheels) wheel.rotation.x = wheelAngle;
-    let rendered = 0, siren = null, sirenDistance = 70;
+    let rendered = 0, siren = null, sirenDistanceSquared = 70 ** 2;
+    const audible = audio.running && audio.context?.state === 'running';
     for (const car of traffic.cars) {
-        const distance = Math.hypot(car.x - x, car.z - z);
-        if (distance > 295) continue;
+        const distanceSquared = (car.x - x) ** 2 + (car.z - z) ** 2;
+        if (distanceSquared > (tv ? fogFar + 12 : 295) ** 2) continue;
         if (!trafficMeshes[rendered]) {
             const mesh = new THREE.Mesh(trafficMeshGeometry(car), trafficMaterial);
             mesh.rotation.order = 'YXZ';
@@ -731,15 +740,19 @@ function draw(dt) {
         const carGround = groundPose(car.x, car.z, car.heading);
         mesh.position.set(car.x - world.originX, carGround.y, car.z - world.originZ);
         mesh.rotation.set(carGround.pitch, -car.heading, carGround.roll, 'YXZ');
-        if (distance < sirenDistance && vehicleTypes[car.kind].siren && (worldTime + car.id) % 12 <= 5) {
+        if (audible && distanceSquared < sirenDistanceSquared &&
+            vehicleTypes[car.kind].siren && (worldTime + car.id) % 12 <= 5) {
             siren = car;
-            sirenDistance = distance;
+            sirenDistanceSquared = distanceSquared;
         }
     }
     for (let i = rendered; i < trafficMeshes.length; i++) trafficMeshes[i].visible = false;
     world.animateBins(traffic.cars);
-    audio.tick(worldTime, siren, sirenDistance,
-        recovery || onRoad(x, z) || world.parkingFor(footprint(x, z, heading)) || world.nearRepair(x, z) ? 0 : Math.abs(velocity));
+    if (audible) {
+        const onFirmGround = recovery || !velocity || onRoad(x, z) ||
+            world.parkingFor(footprint(x, z, heading)) || world.nearRepair(x, z);
+        audio.tick(worldTime, siren, Math.sqrt(sirenDistanceSquared), onFirmGround ? 0 : Math.abs(velocity));
+    }
     syncAudioControl();
 
     const forwardX = Math.sin(heading), forwardZ = -Math.cos(heading);
@@ -769,11 +782,18 @@ function draw(dt) {
         timeHud.textContent = elapsed;
         timeHud.dateTime = `PT${seconds}S`;
     }
-    showHeading(northNeedle, headingLabel, heading);
+    if (heading !== compassHeading) {
+        showHeading(northNeedle, headingLabel, heading);
+        compassHeading = heading;
+    }
     const mapTick = Math.floor(worldTime * 12);
-    if (mapContext && settings.minimap && mapTick !== mapFrame) {
+    if (mapContext && settings.minimap &&
+        (mapFrame < 0 || (mapTick !== mapFrame && (x !== mapX || z !== mapZ || heading !== mapHeading)))) {
         drawMinimap(mapContext, position);
         mapFrame = mapTick;
+        mapX = x;
+        mapZ = z;
+        mapHeading = heading;
     }
     effects.draw(world, renderer, camera);
     renderer.render(world.scene, camera);
@@ -793,7 +813,7 @@ if (renderer) {
         standaloneControls.poll();
         const dt = Math.min(.065, (now - previous) / 1000);
         previous = now;
-        if (error.hidden && (mode === 'drive' || dirty)) {
+        if (!document.hidden && error.hidden && (mode === 'drive' || dirty)) {
             if (mode === 'drive' && world.tiles.size) {
                 const substeps = Math.max(1, Math.ceil(dt / .016));
                 for (let i = 0; i < substeps && mode === 'drive'; i++) simulate(dt / substeps);

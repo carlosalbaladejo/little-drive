@@ -5,6 +5,7 @@ const buttons = new Map([
 
 export function browserControls(onChange, onGesture) {
     const panel = document.querySelector('#drive-controls');
+    const controls = panel.querySelectorAll('button');
     const pointers = new Map();
     let gamepadActions = [];
     let enabled = true;
@@ -13,7 +14,7 @@ export function browserControls(onChange, onGesture) {
     function update() {
         const next = new Set([...pointers.values(), ...gamepadActions]);
         if (next.size === previous.size && [...next].every(action => previous.has(action))) return;
-        for (const button of panel.querySelectorAll('button')) {
+        for (const button of controls) {
             button.classList.toggle('held', next.has(button.dataset.control));
         }
         previous = next;
@@ -26,7 +27,7 @@ export function browserControls(onChange, onGesture) {
         update();
     }
 
-    for (const button of panel.querySelectorAll('button')) {
+    for (const button of controls) {
         button.addEventListener('pointerdown', event => {
             if (!enabled || event.button !== 0) return;
             event.preventDefault();
@@ -52,10 +53,22 @@ export function browserControls(onChange, onGesture) {
         },
         poll() {
             if (!enabled || !document.hasFocus() || document.hidden) return;
-            const gamepad = Array.from(navigator.getGamepads?.() || []).find(pad => pad?.mapping === 'standard');
-            gamepadActions = [...buttons].filter(([index]) => gamepad?.buttons[index]?.pressed).map(([, action]) => action);
-            if (gamepad?.axes[0] < -.35) gamepadActions.push('left');
-            if (gamepad?.axes[0] > .35) gamepadActions.push('right');
+            let gamepad;
+            for (const pad of navigator.getGamepads?.() || []) {
+                if (pad?.mapping === 'standard') {
+                    gamepad = pad;
+                    break;
+                }
+            }
+            if (!gamepad && !gamepadActions.length) return;
+            gamepadActions.length = 0;
+            if (gamepad) {
+                for (const [index, action] of buttons) {
+                    if (gamepad.buttons[index]?.pressed) gamepadActions.push(action);
+                }
+                if (gamepad.axes[0] < -.35) gamepadActions.push('left');
+                if (gamepad.axes[0] > .35) gamepadActions.push('right');
+            }
             update();
         },
     };
