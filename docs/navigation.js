@@ -1,6 +1,8 @@
 import {TILE, verticalStreet, roadOffset} from './city.js?v=english-1';
 import {district, riverCenter, shore, oppositeShore} from './world.js?v=performance-1';
 
+import { t } from './locale.js';
+
 const shades = {
     villas: '#bccf9a', city: '#d2c1a4', offices: '#b9c6b7', river: '#bbd4a6',
     beach: '#dfd09d', park: '#8eb790', hills: '#6b9f78', meadow: '#bec78b', westTown: '#e1bf92',
@@ -10,7 +12,7 @@ const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export function showHeading(needle, label, heading) {
     needle.style.transform = `rotate(${-heading}rad)`;
-    const direction = directions[(Math.round(heading / (Math.PI / 4)) + 8) % 8];
+    const direction = t(directions[(Math.round(heading / (Math.PI / 4)) + 8) % 8]);
     if (label.textContent !== direction) label.textContent = direction;
 }
 

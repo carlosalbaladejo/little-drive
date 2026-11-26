@@ -3,8 +3,10 @@ import {World, START, elevation, labelAt, onRoad, surface} from './world.js?v=pe
 import {groundPose, DrivingEffects} from './effects.js?v=performance-1';
 import {Traffic, footprint, overlap, vehicleTypes} from './traffic.js?v=english-1';
 import {DriveAudio, radioNames} from './audio.js?v=english-1';
-import {drawMinimap, showHeading} from './navigation.js?v=performance-1';
+import {drawMinimap, showHeading} from './navigation.js?v=locale-1';
 import {browserControls} from './browser-controls.js?v=2';
+
+import { t, languageOption, toggleLanguage } from './locale.js';
 
 const canvas = document.querySelector('#view');
 const minimap = document.querySelector('#minimap');
@@ -25,6 +27,9 @@ const catalog = menu.querySelector('[data-action="catalog"]');
 const errorExit = document.querySelector('#error-exit');
 const hint = document.querySelector('#menu-hint');
 const storageKey = 'paseo-costero.pose.v1';
+let hostInputHint = false;
+let touchLayout = false;
+let noticeKey = '';
 const settingsKey = 'paseo-costero.settings.v1';
 const speedOptions = [40, 60, 83, 105, 130];
 const audio = new DriveAudio();
@@ -270,13 +275,17 @@ function saveSettings() {
 }
 
 function updateSettings() {
-    menu.querySelector('[data-action="speed"]').textContent = `Speed limit: ${settings.speed} km/h`;
-    menu.querySelector('[data-action="damage"]').textContent = `Vehicle damage: ${settings.damage ? 'On' : 'Off'}`;
-    menu.querySelector('[data-action="sound"]').textContent = `Sound effects: ${settings.sound ? 'On' : 'Off'}`;
-    menu.querySelector('[data-action="minimap"]').textContent = `Minimap: ${settings.minimap ? 'On' : 'Off'}`;
+    menu.querySelector('[data-action="speed"]').textContent = `${t('Speed limit')}: ${settings.speed} km/h`;
+    menu.querySelector('[data-action="damage"]').textContent = `${t('Vehicle damage')}: ${t(settings.damage ? 'On' : 'Off')}`;
+    menu.querySelector('[data-action="sound"]').textContent = `${t('Sound effects')}: ${t(settings.sound ? 'On' : 'Off')}`;
+    menu.querySelector('[data-action="minimap"]').textContent = `${t('Minimap')}: ${t(settings.minimap ? 'On' : 'Off')}`;
+    menu.querySelector('[data-action="language"]').textContent = languageOption();
+    hint.textContent = t(hostInputHint ? '← → Choose · × Confirm · Select Back' : '← → Choose · Enter Confirm · Esc Back');
+    controller.textContent = t(touchLayout ? 'Use physical controller' : 'Use touch controls');
+    noticeText.textContent = t(noticeKey);
     minimap.hidden = !settings.minimap;
     mapFrame = -1;
-    radioButton.textContent = settings.radio ? `△ ${radioNames[settings.radio]}` : '△ Radio off';
+    radioButton.textContent = settings.radio ? `△ ${radioNames[settings.radio]}` : t('△ Radio off');
     healthHud.hidden = !settings.damage;
     updateHealth();
     audio.enabled = settings.sound;
@@ -329,7 +338,8 @@ function refreshMenu() {
 }
 
 function flash(text, reward) {
-    noticeText.textContent = text;
+    noticeKey = text;
+    noticeText.textContent = t(text);
     notice.classList.toggle('parked', reward === 'parked');
     notice.classList.toggle('repaired', reward === 'repaired');
     notice.hidden = false;
@@ -370,6 +380,11 @@ function runChoice(action) {
             save();
             break;
         case 'sound': settings.sound = !settings.sound; break;
+        case 'language':
+            toggleLanguage();
+            updateSettings();
+            showHeading(northNeedle, headingLabel, position.heading);
+            return;
         case 'minimap': settings.minimap = !settings.minimap; dirty = true; break;
         case 'restart':
             health = 100;
@@ -457,11 +472,13 @@ window.addEventListener('message', event => {
         bridge = event.ports[0];
         catalog.hidden = false;
         errorExit.hidden = false;
-        hint.textContent = '← → Choose · × Confirm · Select Back';
+        hostInputHint = true;
+        updateSettings();
         bridge.onmessage = ({data}) => {
             canvas.parentElement.classList.toggle('touch-hud', data === 'touch');
             controller.hidden = data === 'tv';
-            controller.textContent = data === 'touch' ? 'Use physical controller' : 'Use touch controls';
+            touchLayout = data === 'touch';
+            updateSettings();
             refreshMenu();
         };
         return;
@@ -473,12 +490,13 @@ window.addEventListener('message', event => {
         nativeControls = true;
         document.querySelector('main').classList.add('hosted');
         standaloneControls.disable();
-        hint.textContent = '← → Choose · × Confirm · Select Back';
+        hostInputHint = true;
+        updateSettings();
     }
     setControllerInput(new Set(data.pressed));
 });
 
-hint.textContent = '← → Choose · Enter Confirm · Esc Back';
+
 window.addEventListener('keydown', event => {
     const action = keyboard[event.code];
     if (!action) return;
@@ -659,7 +677,7 @@ function simulate(dt) {
             updateHealth();
             flash('Car repaired!', 'repaired');
             save();
-        } else if (noticeText.textContent !== 'Stop in the driveway for repairs' || notice.hidden) {
+        } else if (noticeKey !== 'Stop in the driveway for repairs' || notice.hidden) {
             flash('Stop in the driveway for repairs');
         }
     } else repairTime = 0;
