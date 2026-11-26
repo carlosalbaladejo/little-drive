@@ -452,7 +452,7 @@ const standaloneControls = browserControls(setControllerInput, () => {
 
 window.addEventListener('message', event => {
     if (event.data === 'paseo-costero-host' && event.ports.length === 1 &&
-        location.href === 'https://appassets.androidplatform.net/driving/index.html') {
+        location.href === 'https://carlosalbaladejo.github.io/little-drive/') {
         bridge?.close();
         bridge = event.ports[0];
         catalog.hidden = false;
