@@ -256,3 +256,17 @@ button:focus-visible, button.selected { background: #176754; color: #fffdf2; bor
 @media (max-height: 300px) {
     .panel { padding-top: 7px; padding-bottom: 7px; }
 }
+
+#fullscreen[hidden] { display: none; }
+#fullscreen { width: 44px; height: 44px; padding: 0; align-items: center; justify-content: center; }
+#fullscreen .collapse, :fullscreen #fullscreen .expand { display: none; }
+:fullscreen #fullscreen .collapse { display: inline; }
+#fullscreen:not([hidden]) {
+    display: flex;
+    pointer-events: auto;
+    color: #28454a;
+    background: #fff6df;
+    border: 1px solid #b5b39f;
+    border-radius: 12px;
+}
+.hosted #fullscreen:not([hidden]) { display: none; }

@@ -471,6 +471,7 @@ window.addEventListener('message', event => {
     if (data?.type !== 'tv-game-input' || data.version !== 1 || !Array.isArray(data.pressed)) return;
     if (!nativeControls) {
         nativeControls = true;
+        document.querySelector('main').classList.add('hosted');
         standaloneControls.disable();
         hint.textContent = '← → Choose · × Confirm · Select Back';
     }
